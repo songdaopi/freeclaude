@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Token 管理</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .token-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        .token-text {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #495057;
+            cursor: pointer;
+        }
+        .token-text:hover {
+            color: #0d6efd;
+        }
+        .error-text {
+            color: #dc3545;
+            font-size: 0.875rem;
+        }
+        .current-token {
+            font-family: monospace;
+            font-size: 0.875rem;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .usage-info {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        .usage-info strong {
+            color: #198754;
+        }
+        .usage-time {
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+        .table td {
+            vertical-align: middle;
+        }
+        .table th {
+            background-color: #f8f9fa;
+        }
+        .btn-group-sm .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        /* 移动端优化样式 */
+        @media (max-width: 768px) {
+            .container-fluid {
+                padding: 10px;
+            }
+            
+            h2 {
+                font-size: 24px;
+            }
+            
+            .token-list {
+                max-height: none;
+            }
+            
+            .token-text {
+                max-width: 120px;
+            }
+            
+            .table td, .table th {
+                padding: 8px;
+                font-size: 14px;
+            }
+            
+            .btn-group-sm .btn {
+                padding: 2px 4px;
+                font-size: 12px;
+            }
+            
+            .card {
+                margin-bottom: 15px;
+            }
+            
+            .card-body {
+                padding: 12px;
+            }
+            
+            .form-control {
+                font-size: 14px;
+            }
+            
+            .badge {
+                font-size: 12px;
+            }
+            
+            .current-token {
+                font-size: 12px;
+            }
+            
+            .usage-info {
+                font-size: 12px;
+            }
+            
+            .usage-time {
+                font-size: 11px;
+            }
+            
+            .btn {
+                padding: 4px 8px;
+                font-size: 14px;
+            }
+            
+            .table-responsive {
+                margin: 0 -10px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            .table {
+                width: auto;
+                min-width: 100%;
+                white-space: nowrap;
+            }
+            
+            .table th {
+                white-space: nowrap;
+                min-width: 60px;
+            }
+            
+            .table td {
+                white-space: nowrap;
+                padding: 8px;
+                font-size: 14px;
+                vertical-align: middle;
+            }
+            
+            /* 设置各列的最小宽度 */
+            .table th:nth-child(1), .table td:nth-child(1) { min-width: 100px; } /* 用户ID */
+            .table th:nth-child(2), .table td:nth-child(2) { min-width: 150px; } /* Token */
+            .table th:nth-child(3), .table td:nth-child(3) { min-width: 80px; } /* 使用量 */
+            .table th:nth-child(4), .table td:nth-child(4) { min-width: 80px; } /* 更新时间 */
+            .table th:nth-child(5), .table td:nth-child(5) { min-width: 60px; } /* 状态 */
+            .table th:nth-child(6), .table td:nth-child(6) { min-width: 180px; } /* 操作按钮 */
+            
+            .token-text {
+                max-width: none;
+                display: inline-block;
+            }
+            
+            .btn-group {
+                white-space: nowrap;
+                display: inline-flex;
+                gap: 4px;
+            }
+            
+            .btn-group .btn {
+                padding: 4px 8px;
+                font-size: 12px;
+                flex: none;
+            }
+            
+            .usage-info {
+                white-space: nowrap;
+            }
+            
+            .usage-time {
+                white-space: nowrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Token 管理</h2>
+            <div>
+                <div class="form-check form-switch d-inline-block me-3">
+                    <input class="form-check-input" type="checkbox" id="privacyMode" onchange="togglePrivacyMode()">
+                    <label class="form-check-label" for="privacyMode">隐私模式</label>
+                </div>
+                <span class="badge bg-primary me-2">总数: <span id="totalCount">0</span></span>
+                <span class="badge bg-success">活跃: <span id="activeCount">0</span></span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        添加新Token
+                    </div>
+                    <div class="card-body">
+                        <form id="tokenForm">
+                            <div class="mb-3">
+                                <textarea class="form-control" id="newToken" rows="3" placeholder="请输入Token (格式: userId%3A%3Atoken)"></textarea>
+                                <div class="form-text">格式示例: user_01xxx%3A%3AeyJhbGci...</div>
+                                <div id="tokenError" class="error-text mt-2" style="display: none;"></div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">添加</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        Token列表
+                        <div>
+                            <span class="me-3 text-muted">
+                                合计使用量: <strong id="totalUsage" class="text-success">0</strong> / <span id="totalMaxUsage">0</span>
+                            </span>
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="updateAllActiveTokens()">更新所有活跃</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="loadTokens()">刷新</button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0 token-list">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width: 15%">用户ID</th>
+                                    <th style="width: 30%">Token</th>
+                                    <th style="width: 15%">使用量</th>
+                                    <th style="width: 15%">更新时间</th>
+                                    <th style="width: 10%">状态</th>
+                                    <th style="width: 15%">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tokenList">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        状态监控
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-4">
+                            <h6 class="card-subtitle mb-2 text-muted">当前活跃Token</h6>
+                            <div id="currentToken" class="bg-light p-2 rounded current-token" title="点击查看完整token">-</div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <h6 class="card-subtitle mb-2 text-muted">失败统计</h6>
+                            <div id="failureStats" class="small">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h6 class="card-subtitle mb-2 text-muted">Chat日志</h6>
+                            <a href="/logs.html" class="btn btn-outline-primary btn-sm">查看详细日志</a>
+                        </div>
+
+                        <div>
+                            <h6 class="card-subtitle mb-2 text-muted">密钥管理</h6>
+                            <a href="/sk.html" class="btn btn-outline-success btn-sm">管理API密钥</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isPrivacyMode = true;  // 默认开启隐私模式
+
+        // 初始化隐私模式开关状态
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('privacyMode').checked = true;
+        });
+
+        function togglePrivacyMode() {
+            isPrivacyMode = document.getElementById('privacyMode').checked;
+            loadTokens(); // 重新加载以应用新的显示模式
+        }
+
+        function maskText(text, type = 'default') {
+            if (!isPrivacyMode) return text;
+            
+            if (type === 'userId') {
+                // 只显示前4个字符和后4个字符
+                return text.length > 8 
+                    ? text.substring(0, 4) + '****' + text.substring(text.length - 4)
+                    : '********';
+            } else if (type === 'token') {
+                // 只显示前8个字符
+                return text.substring(0, 8) + '********';
+            }
+            return '********';
+        }
+
+        function formatTime(minutes) {
+            if (minutes === null || minutes === undefined) return '从未更新';
+            if (minutes === 0) return '刚刚更新';
+            if (minutes < 60) return `${minutes}分钟前`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}小时前`;
+            const days = Math.floor(hours / 24);
+            return `${days}天前`;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('tokenError');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function parseToken(tokenString) {
+            if (!tokenString || typeof tokenString !== 'string') {
+                console.error('Invalid token string:', tokenString);
+                return null;
+            }
+
+            const parts = tokenString.split('%3A%3A');
+            if (parts.length !== 2) {
+                console.error('Invalid token format:', tokenString);
+                return null;
+            }
+
+            return {
+                userId: parts[0],
+                token: parts[1]
+            };
+        }
+
+        async function updateTokenUsage(tokenString) {
+            try {
+                const response = await fetch(`/api/tokens/${encodeURIComponent(tokenString)}/usage`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) throw new Error('更新失败');
+                
+                const data = await response.json();
+                loadTokens(); // 重新加载列表
+                return data.usage;
+            } catch (error) {
+                console.error('Error updating token usage:', error);
+                showError('更新使用量失败');
+            }
+        }
+
+        async function loadTokens() {
+            try {
+                const response = await fetch('/api/tokens');
+                const data = await response.json();
+                
+                // 更新Token列表
+                const tokenList = document.getElementById('tokenList');
+                tokenList.innerHTML = '';
+                
+                if (!data.tokens || !Array.isArray(data.tokens)) {
+                    throw new Error('Invalid token data received');
+                }
+
+                data.tokens.forEach(tokenData => {
+                    const parsed = parseToken(tokenData.fullToken);
+                    if (!parsed) return;
+
+                    const tr = document.createElement('tr');
+                    tr.className = !tokenData.is_active ? 'table-danger' : '';
+                    
+                    // 确定token状态
+                    let statusBadge = '';
+                    let statusClass = '';
+                    if (!tokenData.is_active) {
+                        statusBadge = '<span class="badge bg-danger">失效</span>';
+                        statusClass = 'table-danger';
+                    } else if (tokenData.gpt4_requests >= tokenData.gpt4_max_requests) {
+                        statusBadge = '<span class="badge bg-warning text-dark">超限</span>';
+                        statusClass = 'table-warning';
+                        tokenData.is_active = false; // 超限时设置为非活跃
+                    } else {
+                        statusBadge = '<span class="badge bg-success">活跃</span>';
+                    }
+                    tr.className = statusClass;
+
+                    // 使用量显示颜色
+                    const usageColor = tokenData.gpt4_requests >= tokenData.gpt4_max_requests ? '#dc3545' : '#198754';
+
+                    tr.innerHTML = `
+                        <td>
+                            <span class="user-id">${maskText(parsed.userId, 'userId')}</span>
+                        </td>
+                        <td>
+                            <div class="token-text" title="${isPrivacyMode ? '已隐藏' : parsed.token}">${maskText(parsed.token, 'token')}</div>
+                        </td>
+                        <td>
+                            <div class="usage-info">
+                                <strong style="color: ${usageColor}">${tokenData.gpt4_requests || 0}</strong> / ${tokenData.gpt4_max_requests}
+                            </div>
+                        </td>
+                        <td>
+                            <div class="usage-time">
+                                ${tokenData.minutes_since_update !== null ? formatTime(tokenData.minutes_since_update) : '从未更新'}
+                            </div>
+                        </td>
+                        <td>
+                            ${statusBadge}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary btn-sm" onclick="updateTokenUsage('${tokenData.fullToken}')">更新</button>
+                                ${tokenData.is_active ? 
+                                    `<button class="btn btn-outline-warning btn-sm" onclick="deactivateToken('${tokenData.fullToken}')">停用</button>` :
+                                    `<button class="btn btn-outline-success btn-sm" onclick="activateToken('${tokenData.fullToken}')">启用</button>`
+                                }
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteToken('${tokenData.fullToken}')">删除</button>
+                            </div>
+                        </td>
+                    `;
+                    tokenList.appendChild(tr);
+                });
+                
+                // 更新统计信息
+                document.getElementById('totalCount').textContent = data.stats.total || 0;
+                document.getElementById('activeCount').textContent = data.stats.active || 0;
+                
+                // 更新当前Token（只显示前一部分）
+                const currentTokens = data.currentTokens || [];
+                const currentTokenElement = document.getElementById('currentToken');
+                if (currentTokens.length === 0) {
+                    currentTokenElement.textContent = '-';
+                    currentTokenElement.title = '没有活跃token';
+                    currentTokenElement.style.cursor = 'default';
+                    currentTokenElement.onclick = null;
+                } else {
+                    const tokenList = currentTokens.map(token => 
+                        isPrivacyMode ? maskText(token, 'token') : token.substring(0, 30) + '...'
+                    ).join('\n');
+                    currentTokenElement.innerHTML = tokenList.replace(/\n/g, '<br>');
+                    currentTokenElement.title = isPrivacyMode ? '已隐藏' : currentTokens.join('\n');
+                    currentTokenElement.style.cursor = 'pointer';
+                    currentTokenElement.onclick = () => {
+                        navigator.clipboard.writeText(currentTokens.join('\n'));
+                        alert('Token列表已复制到剪贴板');
+                    };
+                }
+                
+                // 更新失败统计
+                const failureStats = document.getElementById('failureStats');
+                failureStats.innerHTML = '';
+                if (data.failures && typeof data.failures === 'object') {
+                    Object.entries(data.failures).forEach(([token, info]) => {
+                        const parsed = parseToken(token);
+                        if (!parsed) return;
+
+                        failureStats.innerHTML += `
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <small class="text-truncate me-2">${maskText(parsed.userId, 'userId')}</small>
+                                    <small class="text-danger">${info.failure_count}/3</small>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar bg-danger" role="progressbar" 
+                                         style="width: ${(info.failure_count/3)*100}%" 
+                                         aria-valuenow="${info.failure_count}" aria-valuemin="0" aria-valuemax="3">
+                                    </div>
+                                </div>
+                                <div class="usage-info mt-1">
+                                    <small><strong>${info.gpt4_requests || 0}</strong> / ${info.gpt4_max_requests}</small>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                // 计算总使用量
+                let totalUsage = 0;
+                let totalMaxUsage = 0;
+                data.tokens.forEach(tokenData => {
+                    totalUsage += tokenData.gpt4_requests || 0;
+                    totalMaxUsage += tokenData.gpt4_max_requests || 0;
+                });
+                
+                // 更新总使用量显示
+                document.getElementById('totalUsage').textContent = totalUsage;
+                document.getElementById('totalMaxUsage').textContent = totalMaxUsage;
+            } catch (error) {
+                console.error('Error loading tokens:', error);
+                showError('加载Token列表失败');
+            }
+        }
+
+        async function deleteToken(token) {
+            if (!token || typeof token !== 'string') {
+                showError('无效的Token');
+                return;
+            }
+
+            if (!confirm('确定要删除这个Token吗？')) return;
+            
+            try {
+                const response = await fetch('/api/tokens', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token })
+                });
+                
+                if (!response.ok) throw new Error('删除失败');
+                
+                loadTokens();
+            } catch (error) {
+                console.error('Error deleting token:', error);
+                showError('删除Token失败');
+            }
+        }
+
+        document.getElementById('tokenForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const token = document.getElementById('newToken').value.trim();
+            
+            if (!token) {
+                showError('请输入Token');
+                return;
+            }
+
+            if (!token.includes('%3A%3A')) {
+                showError('Token格式错误，请使用正确的格式：userId%3A%3Atoken');
+                return;
+            }
+
+            const parsed = parseToken(token);
+            if (!parsed || !parsed.userId || !parsed.token) {
+                showError('Token格式无效');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/tokens', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ token })
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || '添加失败');
+                }
+                
+                document.getElementById('newToken').value = '';
+                loadTokens();
+            } catch (error) {
+                console.error('Error adding token:', error);
+                showError(error.message || '添加Token失败');
+            }
+        };
+
+        async function updateAllActiveTokens() {
+            try {
+                const response = await fetch('/api/tokens');
+                const data = await response.json();
+                
+                if (!data.tokens || !Array.isArray(data.tokens)) {
+                    throw new Error('Invalid token data received');
+                }
+
+                const activeTokens = data.tokens.filter(t => t.is_active);
+                if (activeTokens.length === 0) {
+                    showError('没有活跃的Token');
+                    return;
+                }
+
+                // 显示更新进度
+                const updateButton = document.querySelector('button[onclick="updateAllActiveTokens()"]');
+                const originalText = updateButton.textContent;
+                updateButton.disabled = true;
+
+                // 逐个更新活跃token
+                for (let i = 0; i < activeTokens.length; i++) {
+                    updateButton.textContent = `更新中 ${i + 1}/${activeTokens.length}`;
+                    await updateTokenUsage(activeTokens[i].fullToken);
+                    // 添加小延迟避免请求过快
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+
+                updateButton.textContent = originalText;
+                updateButton.disabled = false;
+                
+                // 重新加载列表
+                loadTokens();
+            } catch (error) {
+                console.error('Error updating all tokens:', error);
+                showError('批量更新失败');
+                // 恢复按钮状态
+                const updateButton = document.querySelector('button[onclick="updateAllActiveTokens()"]');
+                updateButton.textContent = '更新所有活跃';
+                updateButton.disabled = false;
+            }
+        }
+
+        // 添加停用token的函数
+        async function deactivateToken(token) {
+            if (!confirm('确定要停用这个Token吗？')) return;
+            
+            try {
+                const response = await fetch(`/api/tokens/${encodeURIComponent(token)}/deactivate`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) throw new Error('停用失败');
+                
+                loadTokens();
+            } catch (error) {
+                console.error('Error deactivating token:', error);
+                showError('停用Token失败');
+            }
+        }
+
+        // 添加启用token的函数
+        async function activateToken(token) {
+            if (!confirm('确定要启用这个Token吗？')) return;
+            
+            try {
+                const response = await fetch(`/api/tokens/${encodeURIComponent(token)}/activate`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) throw new Error('启用失败');
+                
+                loadTokens();
+            } catch (error) {
+                console.error('Error activating token:', error);
+                showError('启用Token失败');
+            }
+        }
+
+        // 初始加载
+        loadTokens();
+        // 定期刷新
+        setInterval(loadTokens, 5000);
+    </script>
+</body>
+</html> 

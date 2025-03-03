@@ -1,0 +1,26 @@
+{
+  "name": "Cursor2Api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/server.js"
+  },
+  "private": true,
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-session": "^1.18.1",
+    "formdata-node": "^6.0.3",
+    "node-fetch": "^3.3.2",
+    "protobufjs": "^7.4.0",
+    "sharp": "^0.33.5",
+    "sql.js": "^1.9.0",
+    "undici": "^6.21.0",
+    "uuid": "^11.0.3"
+  }
+}

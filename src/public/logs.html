@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Logs</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        .token-text {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .token-text:hover {
+            overflow: visible;
+            white-space: normal;
+            word-break: break-all;
+        }
+        .message-text {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .status-badge {
+            font-size: 0.8em;
+            padding: 0.3em 0.6em;
+        }
+        .filter-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .stats-section {
+            margin-bottom: 20px;
+        }
+        /* 聊天消息样式 */
+        .chat-container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        
+        .chat-header {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .chat-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 0 10px;
+        }
+        
+        .message {
+            padding: 10px 15px;
+            border-radius: 8px;
+            max-width: 85%;
+            margin: 2px 0;
+        }
+        
+        .message-header {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .message-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 0;
+            line-height: 1.4;
+        }
+        
+        .message.system {
+            background-color: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            max-width: 100%;
+            margin: 5px 0;
+        }
+        
+        .message.user {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            margin-left: auto;
+        }
+        
+        .message.assistant {
+            background-color: #f1f8e9;
+            border-left: 4px solid #4caf50;
+            margin-right: auto;
+        }
+        
+        .message.error {
+            background-color: #ffebee;
+            border-left: 4px solid #f44336;
+            max-width: 100%;
+        }
+        
+        /* 调整模态框大小 */
+        .modal-dialog {
+            max-width: 700px;
+            margin: 1.75rem auto;
+        }
+        
+        .modal-content {
+            border-radius: 12px;
+        }
+        
+        .modal-body {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+        
+        .modal-header {
+            padding: 1rem;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .chat-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        /* 移动端优化样式 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .table-responsive {
+                margin: 0 -10px;
+            }
+            
+            .table td, .table th {
+                padding: 8px;
+                font-size: 14px;
+            }
+            
+            .token-text {
+                max-width: 120px;
+            }
+            
+            .modal-dialog {
+                margin: 10px;
+                max-width: calc(100% - 20px);
+            }
+            
+            .filter-section .row {
+                margin: 0 -5px;
+            }
+            
+            .filter-section .col-md-4 {
+                padding: 0 5px;
+                margin-bottom: 10px;
+            }
+            
+            .btn {
+                padding: 4px 8px;
+                font-size: 14px;
+            }
+            
+            .message {
+                max-width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Chat 日志</h2>
+            <a href="/index.html" class="btn btn-outline-primary">返回 Token 管理</a>
+        </div>
+        
+        <!-- 筛选区域 -->
+        <div class="filter-section">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <label class="form-label">状态筛选:</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="">全部</option>
+                        <option value="success">成功</option>
+                        <option value="failed">失败</option>
+                        <option value="error">异常</option>
+                        <option value="pending">处理中</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">每页显示:</label>
+                    <select class="form-select" id="pageSizeSelect">
+                        <option value="10">10条</option>
+                        <option value="20" selected>20条</option>
+                        <option value="50">50条</option>
+                        <option value="100">100条</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="stats-section">
+            <div class="alert alert-info">
+                总记录数: <span id="totalCount">0</span>
+            </div>
+        </div>
+
+        <!-- 日志列表 -->
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>Token</th>
+                        <th>模型</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="logsTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- 分页 -->
+        <nav>
+            <ul class="pagination justify-content-center" id="pagination"></ul>
+        </nav>
+
+        <!-- 详情模态框 -->
+        <div class="modal fade" id="detailModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">对话详情</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" id="modalBody"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentPage = 1;
+        let pageSize = 20;
+        let totalPages = 1;
+        let detailModal;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+            
+            // 绑定事件
+            document.getElementById('statusFilter').addEventListener('change', () => {
+                currentPage = 1;
+                loadLogs();
+            });
+            
+            document.getElementById('pageSizeSelect').addEventListener('change', (e) => {
+                pageSize = parseInt(e.target.value);
+                currentPage = 1;
+                loadLogs();
+            });
+            
+            // 加载初始数据
+            loadLogs();
+        });
+
+        // 加载日志
+        async function loadLogs() {
+            try {
+                const status = document.getElementById('statusFilter').value;
+                const url = new URL('/api/chat/logs', window.location.origin);
+                url.searchParams.set('page', currentPage);
+                url.searchParams.set('pageSize', pageSize);
+                if (status) {
+                    url.searchParams.set('status', status);
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (!data || !Array.isArray(data.logs)) {
+                    throw new Error('Invalid chat logs data');
+                }
+
+                document.getElementById('totalCount').textContent = data.total;
+                totalPages = Math.ceil(data.total / pageSize);
+                
+                renderLogs(data.logs);
+                renderPagination();
+                
+            } catch (err) {
+                console.error('Error loading logs:', err);
+                alert('加载日志失败: ' + err.message);
+            }
+        }
+
+        // 渲染日志列表
+        function renderLogs(logs) {
+            const tbody = document.getElementById('logsTableBody');
+            tbody.innerHTML = '';
+            
+            logs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${formatDate(log.created_at)}</td>
+                    <td><div class="token-text" title="${log.token}">${log.token}</div></td>
+                    <td>${log.model || '-'}</td>
+                    <td>${formatStatus(log.status, log.error)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="showDetail(${log.id})">
+                            详情
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 渲染分页
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+            
+            // 上一页
+            pagination.appendChild(createPageItem('上一页', currentPage > 1, () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadLogs();
+                }
+            }));
+            
+            // 页码
+            for (let i = 1; i <= totalPages; i++) {
+                if (
+                    i === 1 || // 第一页
+                    i === totalPages || // 最后一页
+                    (i >= currentPage - 2 && i <= currentPage + 2) // 当前页附近
+                ) {
+                    pagination.appendChild(createPageItem(i, true, () => {
+                        currentPage = i;
+                        loadLogs();
+                    }, i === currentPage));
+                } else if (
+                    (i === currentPage - 3 && currentPage > 4) ||
+                    (i === currentPage + 3 && currentPage < totalPages - 3)
+                ) {
+                    pagination.appendChild(createPageItem('...', false));
+                }
+            }
+            
+            // 下一页
+            pagination.appendChild(createPageItem('下一页', currentPage < totalPages, () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadLogs();
+                }
+            }));
+        }
+
+        // 创建分页项
+        function createPageItem(text, enabled, onClick, active = false) {
+            const li = document.createElement('li');
+            li.className = `page-item ${active ? 'active' : ''} ${enabled ? '' : 'disabled'}`;
+            
+            const a = document.createElement('a');
+            a.className = 'page-link';
+            a.href = '#';
+            a.textContent = text;
+            
+            if (enabled && onClick) {
+                a.onclick = (e) => {
+                    e.preventDefault();
+                    onClick();
+                };
+            }
+            
+            li.appendChild(a);
+            return li;
+        }
+
+        // 格式化状态
+        function formatStatus(status, error) {
+            const statusMap = {
+                'success': ['成功', 'success'],
+                'error': ['异常', 'danger'],
+                'failed': ['失败', 'secondary'],
+                'pending': ['处理中', 'warning']
+            };
+            
+            const [text, type] = statusMap[status] || ['未知', 'secondary'];
+            return `<span class="badge bg-${type} status-badge">${text}</span>`;
+        }
+
+        // 格式化日期
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        // 格式化消息
+        function formatMessages(messages) {
+            if (!messages || !Array.isArray(messages)) return '-';
+            
+            let html = '<div class="chat-messages">';
+            messages.forEach(msg => {
+                if (typeof msg === 'string') {
+                    html += `<div class="message">${msg.trim()}</div>`;
+                    return;
+                }
+                
+                const roleClass = msg.role === 'assistant' ? 'assistant' : 
+                                msg.role === 'system' ? 'system' : 'user';
+                        
+                // 处理消息内容
+                let content = '';
+                if (Array.isArray(msg.content)) {
+                    // 处理数组类型的消息内容
+                    content = msg.content.map(item => {
+                        if (typeof item === 'string') {
+                            return item.trim();
+                        } else if (item.type === 'text') {
+                            return item.text.trim();
+                        } else if (item.type === 'image_url') {
+                            return `<img src="${item.image_url.url}" style="max-width: 100%;" />`;
+                        }
+                        return JSON.stringify(item);
+                    }).join('<br>');
+                } else {
+                    // 处理字符串或其他类型的消息内容
+                    content = typeof msg.content === 'string' ? msg.content.trim() : 
+                             typeof msg.content === 'object' ? JSON.stringify(msg.content) : 
+                             String(msg.content);
+                }
+
+                html += `
+                    <div class="message ${roleClass}">
+                        <div class="message-header">${msg.role}:</div>
+                        <div class="message-content">${content}</div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            return html;
+        }
+
+        // 显示详情
+        async function showDetail(logId) {
+            try {
+                const modalBody = document.getElementById('modalBody');
+                modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><div>加载中...</div></div>';
+                detailModal.show();
+
+                const response = await fetch(`/api/chat/logs/${logId}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load log detail');
+                }
+                
+                const log = await response.json();
+                
+                modalBody.innerHTML = `
+                    <div class="chat-container">
+                        <div class="chat-header mb-3">
+                            <div><strong>Token:</strong> <span class="message-text">${log.token}</span></div>
+                            <div><strong>状态:</strong> ${formatStatus(log.status, log.error)}</div>
+                            <div><strong>模型:</strong> ${log.model || '-'}</div>
+                            <div><strong>时间:</strong> ${formatDate(log.created_at)}</div>
+                        </div>
+                        
+                        <div class="chat-content">
+                            ${formatMessages(log.messages)}
+                            
+                            ${log.response ? `
+                            <div class="message assistant">
+                                <div class="message-header">响应:</div>
+                                <div class="message-content">${log.response.trim()}</div>
+                            </div>
+                            ` : ''}
+                            
+                            ${log.error ? `
+                            <div class="message error">
+                                <div class="message-header">错误:</div>
+                                <div class="message-content">${log.error.trim()}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            } catch (err) {
+                console.error('Error loading log detail:', err);
+                modalBody.innerHTML = `
+                    <div class="alert alert-danger">
+                        加载详情失败: ${err.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html> 

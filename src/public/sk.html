@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>API密钥管理</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.delete {
+            background-color: #dc3545;
+        }
+        button.delete:hover {
+            background-color: #c82333;
+        }
+        button.edit {
+            background-color: #28a745;
+            margin-right: 8px;
+        }
+        button.edit:hover {
+            background-color: #218838;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+        }
+        .sk-value {
+            font-family: monospace;
+            background-color: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .copy-button {
+            background-color: #6c757d;
+            padding: 4px 8px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            display: none;
+        }
+        .note-input {
+            width: 200px;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #6c757d;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            color: #5a6268;
+        }
+        /* 移动端优化样式 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .container {
+                padding: 15px;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+                margin: 0;
+            }
+            
+            table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            th, td {
+                padding: 8px;
+                font-size: 14px;
+            }
+            
+            .sk-value {
+                max-width: 150px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: inline-block;
+            }
+            
+            button {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+            
+            .note-input {
+                width: 100%;
+                margin-bottom: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-link">← 返回主页</a>
+    <div class="container">
+        <div class="header">
+            <h1>API密钥管理</h1>
+            <button onclick="createSK()">创建新密钥</button>
+        </div>
+        <table id="skTable">
+            <thead>
+                <tr>
+                    <th>密钥</th>
+                    <th>备注</th>
+                    <th>创建时间</th>
+                    <th>最后使用</th>
+                    <th>调用次数</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // 显示提示信息
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.backgroundColor = type === 'success' ? '#28a745' : '#dc3545';
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        // 复制到剪贴板
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast('已复制到剪贴板');
+            } catch (err) {
+                showToast('复制失败', 'error');
+            }
+        }
+
+        // 格式化时间
+        function formatTime(isoString) {
+            if (!isoString) return '从未使用';
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+
+        // 格式化最后使用时间
+        function formatLastUsed(isoString, minutesSinceLastUse) {
+            if (!isoString) return '从未使用';
+            if (minutesSinceLastUse < 60) {
+                return `${minutesSinceLastUse}分钟前`;
+            }
+            const hours = Math.floor(minutesSinceLastUse / 60);
+            if (hours < 24) {
+                return `${hours}小时前`;
+            }
+            const days = Math.floor(hours / 24);
+            return `${days}天前`;
+        }
+
+        // 更新备注
+        async function updateNote(sk, currentNote) {
+            const note = prompt('请输入新的备注:', currentNote || '');
+            if (note === null) return; // 用户取消
+
+            try {
+                const response = await fetch(`/api/sk/${sk}/note`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ note })
+                });
+                if (!response.ok) throw new Error('更新备注失败');
+                showToast('备注已更新');
+                await loadSKs();
+            } catch (error) {
+                console.error('Error updating note:', error);
+                showToast('更新备注失败', 'error');
+            }
+        }
+
+        // 加载SK列表
+        async function loadSKs() {
+            try {
+                const response = await fetch('/api/sk');
+                if (!response.ok) throw new Error('加载密钥失败');
+                const sks = await response.json();
+                
+                const tbody = document.querySelector('#skTable tbody');
+                tbody.innerHTML = '';
+                
+                sks.forEach(sk => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>
+                            <span class="sk-value">${sk.sk}</span>
+                            <button class="copy-button" onclick="copyToClipboard('${sk.sk}')">复制</button>
+                        </td>
+                        <td>${sk.note || '-'}</td>
+                        <td>${formatTime(sk.created_at)}</td>
+                        <td>${formatLastUsed(sk.last_used_at, sk.minutes_since_last_use)}</td>
+                        <td>${sk.call_count || 0}</td>
+                        <td>${sk.is_active ? '活跃' : '禁用'}</td>
+                        <td>
+                            <button class="edit" onclick="updateNote('${sk.sk}', '${sk.note || ''}')">编辑备注</button>
+                            <button class="delete" onclick="deleteSK('${sk.sk}')">删除</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Error loading SKs:', error);
+                showToast('加载密钥失败', 'error');
+            }
+        }
+
+        // 创建新SK
+        async function createSK() {
+            const note = prompt('请输入密钥备注（可选）:');
+            if (note === null) return; // 用户取消
+            
+            try {
+                const response = await fetch('/api/sk', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ note })
+                });
+                if (!response.ok) throw new Error('创建密钥失败');
+                const { sk } = await response.json();
+                showToast('密钥创建成功');
+                await loadSKs();
+                // 自动复制新创建的SK
+                await copyToClipboard(sk);
+            } catch (error) {
+                console.error('Error creating SK:', error);
+                showToast('创建密钥失败', 'error');
+            }
+        }
+
+        // 删除SK
+        async function deleteSK(sk) {
+            if (!confirm('确定要删除这个密钥吗？此操作不可恢复。')) return;
+            
+            try {
+                const response = await fetch(`/api/sk/${sk}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) throw new Error('删除密钥失败');
+                showToast('密钥已删除');
+                await loadSKs();
+            } catch (error) {
+                console.error('Error deleting SK:', error);
+                showToast('删除密钥失败', 'error');
+            }
+        }
+
+        // 初始加载
+        loadSKs();
+    </script>
+</body>
+</html> 

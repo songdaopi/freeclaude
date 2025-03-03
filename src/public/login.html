@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Login</title>
+    <style>
+        html, body {
+            height: 100%;
+            min-height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            background-color: #f5f5f5;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .login-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 320px;
+            position: relative;
+            transform: translateY(-10%);
+        }
+        input {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 0.8rem;
+            margin: 1rem 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px; /* 防止iOS自动缩放 */
+            -webkit-appearance: none; /* 移除iOS默认样式 */
+            appearance: none;
+        }
+        button {
+            width: 100%;
+            padding: 0.8rem;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .error {
+            color: red;
+            margin-top: 1rem;
+            display: none;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2 style="margin-top: 0; text-align: center;">Login Required</h2>
+        <form id="loginForm" autocomplete="off">
+            <input 
+                type="password" 
+                id="password" 
+                placeholder="Enter Password" 
+                required
+                autocomplete="new-password"
+                autocorrect="off"
+                autocapitalize="off"
+            >
+            <button type="submit">Login</button>
+        </form>
+        <div id="error" class="error">Invalid password</div>
+    </div>
+
+    <script>
+        // 防止页面弹跳
+        window.addEventListener('load', function() {
+            document.body.style.height = window.innerHeight + 'px';
+            setTimeout(function() {
+                window.scrollTo(0, 0);
+            }, 0);
+        });
+
+        // 防止iOS双击缩放
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            const button = e.target.querySelector('button');
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ password })
+                });
+
+                if (response.ok) {
+                    const redirectUrl = new URLSearchParams(window.location.search).get('redirect') || '/';
+                    window.location.href = redirectUrl;
+                } else {
+                    document.getElementById('error').style.display = 'block';
+                    button.disabled = false;
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                document.getElementById('error').style.display = 'block';
+                button.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html> 
