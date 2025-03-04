@@ -1,0 +1,44 @@
+name: Create release on new tag
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build:
+    name: Create release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Get tag name
+        run: echo "REPO_TAG=$(echo "${{ github.ref_name }}" | sed 's/^v//')" >> $GITHUB_ENV
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+      - name: Get Go dependencies
+        run: go get
+      - name: Build Linux amd64
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o grok3_api
+          tar -czvf grok3_api-${{ env.REPO_TAG }}-linux-amd64.tar.gz grok3_api
+      - name: Build Windows amd64
+        run: |
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o grok3_api.exe
+          tar -czvf grok3_api-${{ env.REPO_TAG }}-windows-amd64.tar.gz grok3_api.exe
+      - name: Build Darwin amd64
+        run: |
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o grok3_api
+          tar -czvf grok3_api-${{ env.REPO_TAG }}-darwin-amd64.tar.gz grok3_api
+      - name: Build Darwin arm64
+        run: |
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o grok3_api
+          tar -czvf grok3_api-${{ env.REPO_TAG }}-darwin-arm64.tar.gz grok3_api
+      - name: Release artifacts
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "*.tar.gz"

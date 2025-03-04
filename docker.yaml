@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  cursor2api:
+    image: ahhhliu/cursor2api:latest
+    ports:
+      - "$PORT:$PORT"     
+    volumes:
+      - ./data:/app/data  
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production    
+    restart: always          
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT}/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+#redis和serverless-redis-http服务可选, 删掉会默认使用json文件存储
+  redis:
+    image: redis:latest
+    restart: always
+    volumes:
+      - ./redis-data:/data
+  serverless-redis-http:
+    image: hiett/serverless-redis-http:latest
+    env_file:
+      - .env
+    depends_on:
+      - redis
+    environment:
+      SRH_MODE: env
+      SRH_TOKEN: $UPSTASH_REDIS_TOKEN
+      SRH_CONNECTION_STRING: 'redis://redis:6379'
